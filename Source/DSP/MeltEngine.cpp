@@ -79,10 +79,18 @@ void MeltEngine::process(float* inOutL, float* inOutR,
         }
 
         // 2. Cross-feed: reverb tail -> delay feedback
+        float effFb = feedback_;
+        float effCf = crossFeed_;
+        float totalGain = effFb + effCf;
+        if (totalGain > 0.95f)
+        {
+            float scale = 0.95f / totalGain;
+            effFb *= scale;
+            effCf *= scale;
+        }
         float cfSignal = bypassCrossFeed_
-            ? 0.0f : reverbTailPrev_ * crossFeed_;
-        float fbSignal = delayOutPrev_ * feedback_ + cfSignal;
-        // Soft limit feedback loop (preserves linearity below ±1)
+            ? 0.0f : reverbTailPrev_ * effCf;
+        float fbSignal = delayOutPrev_ * effFb + cfSignal;
         fbSignal = std::clamp(fbSignal, -2.0f, 2.0f);
 
         // [METER] crossfeed

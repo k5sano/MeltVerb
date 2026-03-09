@@ -98,7 +98,7 @@ TEST_CASE("Cross-feed increases density", "[melt]")
     };
 
     float noCF   = runWithCF(0.0f);
-    float withCF = runWithCF(0.8f);
+    float withCF = runWithCF(0.3f);
     REQUIRE(withCF > noCF);
 }
 

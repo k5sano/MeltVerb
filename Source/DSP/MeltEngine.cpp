@@ -88,11 +88,7 @@ void MeltEngine::process(float* inOutL, float* inOutR,
         // [METER] crossfeed
         meterCrossFeed.pushSample(cfSignal);
 
-        // 3. Tone filter on feedback
-        float fbFiltered = bypassTone_
-            ? fbSignal : tone_.process(fbSignal);
-
-        // 4-6. Delay
+        // 3-4. Delay (tone filter applied to delay output, not feedback)
         float delayOut = 0.0f;
         if (bypassDelay_)
         {
@@ -100,9 +96,10 @@ void MeltEngine::process(float* inOutL, float* inOutR,
         }
         else
         {
-            delay_.write(diffused + fbFiltered);
+            delay_.write(mono + fbSignal);
             delay_.setCurrentInput(mono);
-            delayOut = delay_.read();
+            float rawDelay = delay_.read();
+            delayOut = bypassTone_ ? rawDelay : tone_.process(rawDelay);
         }
 
         // [METER] delay_out
@@ -119,8 +116,8 @@ void MeltEngine::process(float* inOutL, float* inOutR,
         float outL, outR;
         if (bypassReverb_)
         {
-            outL = tankInput;
-            outR = tankInput;
+            outL = dry;
+            outR = dry;
             meterReverbOut.pushSample(0.0f);
         }
         else

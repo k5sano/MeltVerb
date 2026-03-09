@@ -1,0 +1,56 @@
+#pragma once
+
+#include "InputDiffuser.h"
+#include "MeltDelay.h"
+#include "ToneFilter.h"
+#include "ReverbTank.h"
+#include "DebugMeter.h"
+
+/// Unified DSP engine: InputDiffuser → MeltDelay (3 modes) → ReverbTank
+/// with cross-feed from reverb tail back into delay feedback.
+/// 48kHz native, 32-bit float.
+class MeltEngine {
+public:
+    MeltEngine();
+    ~MeltEngine() = default;
+
+    void prepare(double sampleRate);
+    void clear();
+    void process(float* inOutL, float* inOutR, int numSamples);
+
+    // Delay params
+    void setDelayTime(float norm)     { delay_.setTimeNorm(norm); }
+    void setDelayFeedback(float fb)   { feedback_ = fb; }
+    void setDelayTone(float t)        { tone_.setTone(t); }
+    void setDelayMix(float m)         { delayMix_ = m; }
+    void setDelayMode(int mode)       { delay_.setMode(mode); }
+
+    // Reverb params
+    void setReverbDecay(float d)      { tank_.setDecay(d); }
+    void setReverbDamping(float lp)   { tank_.setDamping(lp); }
+    void setReverbMix(float m)        { reverbMix_ = m; }
+
+    // Shared params
+    void setDiffusion(float k);
+    void setCrossFeed(float cf)       { crossFeed_ = cf; }
+    void setModSpeed(float s);
+    void setModDepth(float d)         { delay_.setModDepth(d); }
+
+    // 6-point debug meters
+    DebugMeter meterInput, meterDelayOut, meterReverbIn;
+    DebugMeter meterReverbOut, meterCrossFeed, meterOutput;
+
+private:
+    InputDiffuser diffuser_;
+    MeltDelay     delay_;
+    ToneFilter    tone_;
+    ReverbTank    tank_;
+
+    float feedback_   = 0.4f;
+    float delayMix_   = 0.5f;
+    float reverbMix_  = 0.5f;
+    float crossFeed_  = 0.3f;
+
+    float delayOutPrev_    = 0.0f;
+    float reverbTailPrev_  = 0.0f;
+};

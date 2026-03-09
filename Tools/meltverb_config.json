@@ -1,0 +1,6 @@
+{
+    "plugin_path": "build/MeltVerb_artefacts/Debug/VST3/MeltVerb.vst3",
+    "strictness_level": 5,
+    "sample_rates": [44100, 48000, 96000],
+    "block_sizes": [64, 128, 256, 512, 1024]
+}

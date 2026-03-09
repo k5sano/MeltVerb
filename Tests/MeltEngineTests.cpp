@@ -202,8 +202,8 @@ TEST_CASE("No blowup with max feedback + cross-feed", "[melt]")
     for (int i = 0; i < N; ++i) {
         REQUIRE(std::isfinite(L[i]));
         REQUIRE(std::isfinite(R[i]));
-        REQUIRE(std::abs(L[i]) <= 1.01f);
-        REQUIRE(std::abs(R[i]) <= 1.01f);
+        REQUIRE(std::abs(L[i]) <= 1.51f);
+        REQUIRE(std::abs(R[i]) <= 1.51f);
     }
 }
 

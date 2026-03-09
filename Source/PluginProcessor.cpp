@@ -20,6 +20,16 @@ MeltVerbPlugin::MeltVerbPlugin()
     crossFeedParam     = apvts.getRawParameterValue("cross_feed");
     modSpeedParam      = apvts.getRawParameterValue("mod_speed");
     modDepthParam      = apvts.getRawParameterValue("mod_depth");
+
+    diffuseRangeParam    = apvts.getRawParameterValue("diffuse_range");
+    diffuseSendParam     = apvts.getRawParameterValue("diffuse_send");
+    diffuseReturnParam   = apvts.getRawParameterValue("diffuse_return");
+
+    bypassDiffuserParam  = apvts.getRawParameterValue("bypass_diffuser");
+    bypassDelayParam     = apvts.getRawParameterValue("bypass_delay");
+    bypassToneParam      = apvts.getRawParameterValue("bypass_tone");
+    bypassReverbParam    = apvts.getRawParameterValue("bypass_reverb");
+    bypassCrossFeedParam = apvts.getRawParameterValue("bypass_crossfeed");
 }
 
 void MeltVerbPlugin::prepareToPlay(double sampleRate, int)
@@ -59,6 +69,16 @@ void MeltVerbPlugin::processBlock(juce::AudioBuffer<float>& buffer,
     engine_.setCrossFeed(crossFeedParam->load());
     engine_.setModSpeed(modSpeedParam->load());
     engine_.setModDepth(modDepthParam->load());
+
+    engine_.setDiffuseRange(static_cast<int>(diffuseRangeParam->load()));
+    engine_.setDiffuseSend(diffuseSendParam->load());
+    engine_.setDiffuseReturn(diffuseReturnParam->load());
+
+    engine_.setBypassDiffuser(bypassDiffuserParam->load() > 0.5f);
+    engine_.setBypassDelay(bypassDelayParam->load() > 0.5f);
+    engine_.setBypassTone(bypassToneParam->load() > 0.5f);
+    engine_.setBypassReverb(bypassReverbParam->load() > 0.5f);
+    engine_.setBypassCrossFeed(bypassCrossFeedParam->load() > 0.5f);
 
     engine_.process(L, R, numSamples);
 

@@ -51,6 +51,16 @@ private:
     std::atomic<float>* modSpeedParam      = nullptr;
     std::atomic<float>* modDepthParam      = nullptr;
 
+    std::atomic<float>* diffuseRangeParam    = nullptr;
+    std::atomic<float>* diffuseSendParam     = nullptr;
+    std::atomic<float>* diffuseReturnParam   = nullptr;
+
+    std::atomic<float>* bypassDiffuserParam  = nullptr;
+    std::atomic<float>* bypassDelayParam     = nullptr;
+    std::atomic<float>* bypassToneParam      = nullptr;
+    std::atomic<float>* bypassReverbParam    = nullptr;
+    std::atomic<float>* bypassCrossFeedParam = nullptr;
+
     MeltEngine engine_;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(MeltVerbPlugin)

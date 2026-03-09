@@ -6,6 +6,8 @@ static const juce::Colour kSharedColour {0xFF44BB66};
 static const juce::Colour kBgColour     {0xFF1A1A2E};
 static const juce::Colour kMeterIn      {0xFF66DDAA};
 static const juce::Colour kMeterOut     {0xFFDD6666};
+static const juce::Colour kDebugColour  {0xFFAAAAFF};
+static const juce::Colour kBypassOn     {0xFFFF6644};
 
 MeltVerbEditor::MeltVerbEditor(MeltVerbPlugin& p)
     : AudioProcessorEditor(p), proc_(p)
@@ -54,6 +56,38 @@ MeltVerbEditor::MeltVerbEditor(MeltVerbPlugin& p)
     crossFeedAtt = std::make_unique<Att>(a, "cross_feed",       crossFeedKnob);
     modSpeedAtt  = std::make_unique<Att>(a, "mod_speed",        modSpeedKnob);
     modDepthAtt  = std::make_unique<Att>(a, "mod_depth",        modDepthKnob);
+
+    // Diffuser control
+    static const juce::Colour kDiffuserColour {0xFFCC88DD};
+    addAndMakeVisible(diffRangeBox);
+    diffRangeBox.addItem("Low",  1);
+    diffRangeBox.addItem("Mid",  2);
+    diffRangeBox.addItem("High", 3);
+    diffRangeAtt = std::make_unique<CBAtt>(a, "diffuse_range", diffRangeBox);
+
+    addAndMakeVisible(diffRangeLabel);
+    diffRangeLabel.setText("Range", juce::dontSendNotification);
+    diffRangeLabel.setJustificationType(juce::Justification::centred);
+    diffRangeLabel.setColour(juce::Label::textColourId,
+                             kDiffuserColour.brighter(0.3f));
+    diffRangeLabel.setFont(juce::FontOptions(11.0f, juce::Font::bold));
+
+    setupKnob(diffSendKnob,   diffSendLabel,   "D.Send", kDiffuserColour);
+    setupKnob(diffReturnKnob, diffReturnLabel, "D.Ret",  kDiffuserColour);
+    diffSendAtt   = std::make_unique<Att>(a, "diffuse_send",   diffSendKnob);
+    diffReturnAtt = std::make_unique<Att>(a, "diffuse_return", diffReturnKnob);
+
+    // Bypass toggle buttons
+    setupBypassBtn(bypDiffuserBtn);
+    setupBypassBtn(bypDelayBtn);
+    setupBypassBtn(bypToneBtn);
+    setupBypassBtn(bypReverbBtn);
+    setupBypassBtn(bypCrossFeedBtn);
+    bypDiffuserAtt  = std::make_unique<BtnAtt>(a, "bypass_diffuser",  bypDiffuserBtn);
+    bypDelayAtt     = std::make_unique<BtnAtt>(a, "bypass_delay",     bypDelayBtn);
+    bypToneAtt      = std::make_unique<BtnAtt>(a, "bypass_tone",      bypToneBtn);
+    bypReverbAtt    = std::make_unique<BtnAtt>(a, "bypass_reverb",    bypReverbBtn);
+    bypCrossFeedAtt = std::make_unique<BtnAtt>(a, "bypass_crossfeed", bypCrossFeedBtn);
 
     // Preset controls
     addAndMakeVisible(presetBox);
@@ -121,7 +155,7 @@ MeltVerbEditor::MeltVerbEditor(MeltVerbPlugin& p)
     refreshPresetList();
     restoreImgPath();
 
-    setSize(720, 400);
+    setSize(820, 520);
     startTimerHz(30);
 }
 
@@ -129,7 +163,20 @@ void MeltVerbEditor::timerCallback()
 {
     inLevel_  = proc_.levelMeter.getInputLevel();
     outLevel_ = proc_.levelMeter.getOutputLevel();
-    repaint(getLocalBounds().removeFromRight(40));
+
+    // Read 6-point debug meters
+    auto& eng = proc_.getEngine();
+    DebugMeter* meters[kNumDebugMeters] = {
+        &eng.meterInput, &eng.meterDelayOut, &eng.meterReverbIn,
+        &eng.meterReverbOut, &eng.meterCrossFeed, &eng.meterOutput
+    };
+    for (int i = 0; i < kNumDebugMeters; ++i)
+    {
+        auto lev = meters[i]->getAndReset();
+        debugLevels_[i] = lev.peakDb;
+    }
+
+    repaint();
 }
 
 void MeltVerbEditor::setupKnob(juce::Slider& knob, juce::Label& label,
@@ -150,6 +197,14 @@ void MeltVerbEditor::setupKnob(juce::Slider& knob, juce::Label& label,
     label.setJustificationType(juce::Justification::centred);
     label.setColour(juce::Label::textColourId, col.brighter(0.4f));
     label.setFont(juce::FontOptions(13.0f, juce::Font::bold));
+}
+
+void MeltVerbEditor::setupBypassBtn(juce::ToggleButton& btn)
+{
+    addAndMakeVisible(btn);
+    btn.setColour(juce::ToggleButton::textColourId,
+                  juce::Colours::white.withAlpha(0.8f));
+    btn.setColour(juce::ToggleButton::tickColourId, kBypassOn);
 }
 
 void MeltVerbEditor::refreshPresetList()
@@ -224,6 +279,35 @@ void MeltVerbEditor::drawMeter(juce::Graphics& g,
     g.fillRoundedRectangle(filled.toFloat(), 3.0f);
 }
 
+void MeltVerbEditor::drawDebugMeter(juce::Graphics& g,
+                                     juce::Rectangle<int> area,
+                                     const juce::String& label,
+                                     float peakDb)
+{
+    // Map dB to 0-1: -60dB=0, 0dB=1
+    float norm = std::clamp((peakDb + 60.0f) / 60.0f, 0.0f, 1.0f);
+
+    // Bar background
+    auto barArea = area.removeFromBottom(area.getHeight() - 14);
+    g.setColour(juce::Colours::black.withAlpha(0.5f));
+    g.fillRoundedRectangle(barArea.toFloat(), 2.0f);
+
+    // Bar fill
+    int fillH = static_cast<int>(
+        static_cast<float>(barArea.getHeight()) * norm);
+    auto filled = barArea.removeFromBottom(fillH);
+    auto barCol = norm > 0.85f ? juce::Colour(0xFFFF4444)
+                : norm > 0.6f  ? juce::Colour(0xFFFFAA33)
+                               : kDebugColour;
+    g.setColour(barCol.withAlpha(0.85f));
+    g.fillRoundedRectangle(filled.toFloat(), 2.0f);
+
+    // Label
+    g.setColour(juce::Colours::white.withAlpha(0.7f));
+    g.setFont(juce::FontOptions(9.0f));
+    g.drawText(label, area, juce::Justification::centred);
+}
+
 void MeltVerbEditor::paint(juce::Graphics& g)
 {
     g.fillAll(kBgColour);
@@ -244,16 +328,18 @@ void MeltVerbEditor::paint(juce::Graphics& g)
         g.setOpacity(1.0f);
     }
 
-    // Section backgrounds
+    // Knob section area (top part)
     auto bounds = getLocalBounds().reduced(8);
-    bounds.removeFromTop(40);
-    bounds.removeFromRight(40);
+    bounds.removeFromTop(40);  // preset bar
+    auto bottomSection = bounds.removeFromBottom(110); // debug section
+    bounds.removeFromRight(40); // meter strip
     bounds.removeFromTop(4);
 
-    int totalCols = 12; // 5 delay + 3 reverb + 4 shared
+    static const juce::Colour kDiffuserColour {0xFFCC88DD};
+    int totalCols = 15; // 5 delay + 3 reverb + 4 shared + 3 diffuser
     int colW = bounds.getWidth() / totalCols;
 
-    // Delay section (5 cols: 4 knobs + mode)
+    // Delay section (5 cols)
     auto delArea = bounds.removeFromLeft(colW * 5);
     g.setColour(kDelayColour.withAlpha(0.08f));
     g.fillRoundedRectangle(delArea.toFloat().reduced(2), 8.0f);
@@ -268,11 +354,18 @@ void MeltVerbEditor::paint(juce::Graphics& g)
     g.drawRoundedRectangle(revArea.toFloat().reduced(2), 8.0f, 1.0f);
 
     // Shared section (4 cols)
-    auto shArea = bounds;
+    auto shArea = bounds.removeFromLeft(colW * 4);
     g.setColour(kSharedColour.withAlpha(0.08f));
     g.fillRoundedRectangle(shArea.toFloat().reduced(2), 8.0f);
     g.setColour(kSharedColour.withAlpha(0.3f));
     g.drawRoundedRectangle(shArea.toFloat().reduced(2), 8.0f, 1.0f);
+
+    // Diffuser section (3 cols)
+    auto diffArea = bounds;
+    g.setColour(kDiffuserColour.withAlpha(0.08f));
+    g.fillRoundedRectangle(diffArea.toFloat().reduced(2), 8.0f);
+    g.setColour(kDiffuserColour.withAlpha(0.3f));
+    g.drawRoundedRectangle(diffArea.toFloat().reduced(2), 8.0f, 1.0f);
 
     // Title
     g.setColour(juce::Colours::white.withAlpha(0.7f));
@@ -281,10 +374,10 @@ void MeltVerbEditor::paint(juce::Graphics& g)
                getLocalBounds().reduced(10, 6).removeFromTop(20),
                juce::Justification::right);
 
-    // Level meters
-    auto meterStrip = getLocalBounds().reduced(8)
-                          .removeFromRight(32);
+    // --- In/Out Level meters (right strip) ---
+    auto meterStrip = getLocalBounds().reduced(8).removeFromRight(32);
     meterStrip.removeFromTop(44);
+    meterStrip.removeFromBottom(110);
 
     auto inArea  = meterStrip.removeFromLeft(12);
     meterStrip.removeFromLeft(4);
@@ -300,6 +393,35 @@ void MeltVerbEditor::paint(juce::Graphics& g)
     g.setColour(kMeterOut);
     g.drawText("Out", outArea.withY(outArea.getBottom() + 2).withHeight(12),
                juce::Justification::centred);
+
+    // --- Debug section background ---
+    g.setColour(juce::Colours::white.withAlpha(0.04f));
+    g.fillRoundedRectangle(bottomSection.toFloat().reduced(2), 6.0f);
+    g.setColour(juce::Colours::white.withAlpha(0.15f));
+    g.drawRoundedRectangle(bottomSection.toFloat().reduced(2), 6.0f, 1.0f);
+
+    // Debug section title
+    g.setColour(juce::Colours::white.withAlpha(0.5f));
+    g.setFont(juce::FontOptions(11.0f));
+    g.drawText("Signal Debug",
+               bottomSection.removeFromTop(16).reduced(8, 0),
+               juce::Justification::left);
+
+    // 6-point debug meters
+    auto debugArea = bottomSection.reduced(8, 2);
+    // Bypass buttons take left portion
+    auto bypArea = debugArea.removeFromLeft(110);
+    (void)bypArea; // layout handled in resized()
+
+    int meterW = debugArea.getWidth() / 6;
+    static const char* meterNames[kNumDebugMeters] = {
+        "Input", "DelOut", "RevIn", "RevOut", "XFeed", "Output"
+    };
+    for (int i = 0; i < kNumDebugMeters; ++i)
+    {
+        auto col = debugArea.removeFromLeft(meterW);
+        drawDebugMeter(g, col, meterNames[i], debugLevels_[i]);
+    }
 }
 
 void MeltVerbEditor::resized()
@@ -320,9 +442,14 @@ void MeltVerbEditor::resized()
     opacityKnob.setBounds(presetArea.removeFromLeft(34));
 
     bounds.removeFromTop(4);
-    bounds.removeFromRight(40);
 
-    int totalCols = 12;
+    // Bottom debug section
+    auto bottomSection = bounds.removeFromBottom(110);
+
+    // Main knob area
+    bounds.removeFromRight(40); // meter strip
+
+    int totalCols = 15;
     int colW = bounds.getWidth() / totalCols;
     int labelH = 14;
 
@@ -338,7 +465,6 @@ void MeltVerbEditor::resized()
     placeKnob(toneKnob,    toneLabel,    bounds.removeFromLeft(colW));
     placeKnob(dMixKnob,    dMixLabel,    bounds.removeFromLeft(colW));
 
-    // Mode combo in its own column
     auto modeArea = bounds.removeFromLeft(colW);
     modeLabel.setBounds(modeArea.removeFromTop(labelH));
     modeBox.setBounds(modeArea.reduced(4).removeFromTop(28));
@@ -352,5 +478,26 @@ void MeltVerbEditor::resized()
     placeKnob(diffKnob,      diffLabel,      bounds.removeFromLeft(colW));
     placeKnob(crossFeedKnob, crossFeedLabel, bounds.removeFromLeft(colW));
     placeKnob(modSpeedKnob,  modSpeedLabel,  bounds.removeFromLeft(colW));
-    placeKnob(modDepthKnob,  modDepthLabel,  bounds);
+    placeKnob(modDepthKnob,  modDepthLabel,  bounds.removeFromLeft(colW));
+
+    // Diffuser (range combo + send + return)
+    auto drArea = bounds.removeFromLeft(colW);
+    diffRangeLabel.setBounds(drArea.removeFromTop(labelH));
+    diffRangeBox.setBounds(drArea.reduced(4).removeFromTop(28));
+
+    placeKnob(diffSendKnob,   diffSendLabel,   bounds.removeFromLeft(colW));
+    placeKnob(diffReturnKnob, diffReturnLabel, bounds);
+
+    // --- Debug section layout ---
+    bottomSection.removeFromTop(16); // title
+    auto debugLayout = bottomSection.reduced(8, 2);
+
+    // Bypass buttons (left column)
+    auto bypCol = debugLayout.removeFromLeft(110);
+    int btnH = bypCol.getHeight() / 5;
+    bypDiffuserBtn.setBounds(bypCol.removeFromTop(btnH));
+    bypDelayBtn.setBounds(bypCol.removeFromTop(btnH));
+    bypToneBtn.setBounds(bypCol.removeFromTop(btnH));
+    bypReverbBtn.setBounds(bypCol.removeFromTop(btnH));
+    bypCrossFeedBtn.setBounds(bypCol);
 }

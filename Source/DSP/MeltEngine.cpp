@@ -30,8 +30,19 @@ void MeltEngine::clear()
 
 void MeltEngine::setDiffusion(float k)
 {
-    diffuser_.setDiffusion(k);
-    tank_.setDiffusion(k);
+    diffusionRaw_ = k;
+
+    // Remap k based on range selector
+    float mapped = k;
+    switch (diffuseRange_)
+    {
+        case 0: mapped = k * 0.14f;                break; // Low:  0–0.14
+        case 1: mapped = 0.14f + k * 0.71f;        break; // Mid:  0.14–0.85
+        case 2: mapped = 0.85f + k * 0.15f;        break; // High: 0.85–1.0
+    }
+
+    diffuser_.setDiffusion(mapped);
+    tank_.setDiffusion(mapped);
 }
 
 void MeltEngine::setModSpeed(float s)
@@ -52,27 +63,47 @@ void MeltEngine::process(float* inOutL, float* inOutR,
         // [METER] input
         meterInput.pushSample(mono);
 
-        // 1. Input Diffusion AP x4
-        float diffused = diffuser_.process(mono);
+        // 1. Input Diffusion with send/return control
+        float diffused;
+        if (bypassDiffuser_)
+        {
+            diffused = mono;
+        }
+        else
+        {
+            float diffIn = mono * diffuseSend_;
+            float diffOut = diffuser_.process(diffIn);
+            diffOut = std::clamp(diffOut, -1.5f, 1.5f);
+            diffused = mono * (1.0f - diffuseReturn_)
+                      + diffOut * diffuseReturn_;
+        }
 
         // 2. Cross-feed: reverb tail -> delay feedback
-        float fbSignal = delayOutPrev_ * feedback_
-                        + reverbTailPrev_ * crossFeed_;
+        float cfSignal = bypassCrossFeed_
+            ? 0.0f : reverbTailPrev_ * crossFeed_;
+        float fbSignal = delayOutPrev_ * feedback_ + cfSignal;
+        // Soft limit feedback loop (preserves linearity below ±1)
+        fbSignal = std::clamp(fbSignal, -2.0f, 2.0f);
 
         // [METER] crossfeed
-        meterCrossFeed.pushSample(reverbTailPrev_ * crossFeed_);
+        meterCrossFeed.pushSample(cfSignal);
 
         // 3. Tone filter on feedback
-        float fbFiltered = tone_.process(fbSignal);
+        float fbFiltered = bypassTone_
+            ? fbSignal : tone_.process(fbSignal);
 
-        // 4. Write to delay (diffused + filtered feedback)
-        delay_.write(diffused + fbFiltered);
-
-        // 5. Provide current input for swell envelope
-        delay_.setCurrentInput(mono);
-
-        // 6. Read from delay (mode-dependent)
-        float delayOut = delay_.read();
+        // 4-6. Delay
+        float delayOut = 0.0f;
+        if (bypassDelay_)
+        {
+            delayOut = diffused;
+        }
+        else
+        {
+            delay_.write(diffused + fbFiltered);
+            delay_.setCurrentInput(mono);
+            delayOut = delay_.read();
+        }
 
         // [METER] delay_out
         meterDelayOut.pushSample(delayOut);
@@ -84,22 +115,31 @@ void MeltEngine::process(float* inOutL, float* inOutR,
         // [METER] reverb_in
         meterReverbIn.pushSample(tankInput);
 
-        // 8. Reverb Tank (Dattorro loop)
-        TankOutput tankOut = tank_.process(tankInput);
+        // 8. Reverb Tank
+        float outL, outR;
+        if (bypassReverb_)
+        {
+            outL = tankInput;
+            outR = tankInput;
+            meterReverbOut.pushSample(0.0f);
+        }
+        else
+        {
+            TankOutput tankOut = tank_.process(tankInput);
+            meterReverbOut.pushSample(
+                (tankOut.wetL + tankOut.wetR) * 0.5f);
 
-        // [METER] reverb_out
-        meterReverbOut.pushSample(
-            (tankOut.wetL + tankOut.wetR) * 0.5f);
+            outL = dry * (1.0f - reverbMix_)
+                  + tankOut.wetL * reverbMix_;
+            outR = dry * (1.0f - reverbMix_)
+                  + tankOut.wetR * reverbMix_;
 
-        // 9. Final output: dry/wet via reverb_mix
-        float outL = dry * (1.0f - reverbMix_)
-                    + tankOut.wetL * reverbMix_;
-        float outR = dry * (1.0f - reverbMix_)
-                    + tankOut.wetR * reverbMix_;
+            reverbTailPrev_ = tankOut.tail;
+        }
 
-        // Soft-clip: clamp +-4.0 then tanh
-        outL = std::tanh(std::clamp(outL, -4.0f, 4.0f));
-        outR = std::tanh(std::clamp(outR, -4.0f, 4.0f));
+        // Safety clamp (no tanh distortion in normal range)
+        outL = std::clamp(outL, -1.5f, 1.5f);
+        outR = std::clamp(outR, -1.5f, 1.5f);
 
         // [METER] output
         meterOutput.pushSample((outL + outR) * 0.5f);
@@ -107,8 +147,8 @@ void MeltEngine::process(float* inOutL, float* inOutR,
         inOutL[i] = outL;
         inOutR[i] = outR;
 
-        // 10. Carry over for next sample
-        delayOutPrev_   = delayOut;
-        reverbTailPrev_ = tankOut.tail;
+        // Carry over for next sample
+        delayOutPrev_ = delayOut;
+        if (bypassReverb_) reverbTailPrev_ = 0.0f;
     }
 }

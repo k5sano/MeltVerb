@@ -32,9 +32,19 @@ public:
 
     // Shared params
     void setDiffusion(float k);
+    void setDiffuseRange(int range)   { diffuseRange_ = range; }
+    void setDiffuseSend(float s)      { diffuseSend_ = s; }
+    void setDiffuseReturn(float r)    { diffuseReturn_ = r; }
     void setCrossFeed(float cf)       { crossFeed_ = cf; }
     void setModSpeed(float s);
     void setModDepth(float d)         { delay_.setModDepth(d); }
+
+    // Bypass switches
+    void setBypassDiffuser(bool b)    { bypassDiffuser_ = b; }
+    void setBypassDelay(bool b)       { bypassDelay_ = b; }
+    void setBypassTone(bool b)        { bypassTone_ = b; }
+    void setBypassReverb(bool b)      { bypassReverb_ = b; }
+    void setBypassCrossFeed(bool b)   { bypassCrossFeed_ = b; }
 
     // 6-point debug meters
     DebugMeter meterInput, meterDelayOut, meterReverbIn;
@@ -46,11 +56,22 @@ private:
     ToneFilter    tone_;
     ReverbTank    tank_;
 
-    float feedback_   = 0.4f;
+    float feedback_   = 0.25f;
     float delayMix_   = 0.5f;
     float reverbMix_  = 0.5f;
-    float crossFeed_  = 0.3f;
+    float crossFeed_  = 0.1f;
 
     float delayOutPrev_    = 0.0f;
     float reverbTailPrev_  = 0.0f;
+
+    int   diffuseRange_    = 1;     // 0=Low, 1=Mid, 2=High
+    float diffuseSend_     = 0.5f;
+    float diffuseReturn_   = 0.5f;
+    float diffusionRaw_    = 0.4f;  // raw knob value before range mapping
+
+    bool bypassDiffuser_   = false;
+    bool bypassDelay_      = false;
+    bool bypassTone_       = false;
+    bool bypassReverb_     = false;
+    bool bypassCrossFeed_  = false;
 };

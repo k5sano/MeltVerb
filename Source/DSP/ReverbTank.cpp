@@ -84,6 +84,8 @@ void ReverbTank::clear()
     wp_ = 0;
     lpDecay1_ = 0.0f;
     lpDecay2_ = 0.0f;
+    svfA_.reset(); // EMverb融合 Task 2
+    svfB_.reset(); // EMverb融合 Task 2
     lfoVal_[0] = 0.0f;
     lfoVal_[1] = 0.0f;
 }
@@ -115,8 +117,12 @@ TankOutput ReverbTank::process(float input)
     float modOfs = loopModBase_ + loopModAmp_ * lfoVal_[1];
     acc += interpRead(baseDel2_, tapDel2_, modOfs) * reverbTime_;
 
-    lpDecay1_ += lp_ * (acc - lpDecay1_);
-    acc = lpDecay1_;
+    // EMverb融合 Task 2: SVF ローパス（Side A）
+    {
+        float lpHz   = 200.0f * std::pow(100.0f, lp_);
+        float lpNorm = std::min(lpHz / static_cast<float>(sr_), 0.49f);
+        acc = svfA_.process(acc, lpNorm);
+    }
 
     pr = bufRead(wp_ + baseDap1a_ + tapDap1a_ - 1);
     acc += pr * (-kap_);
@@ -130,15 +136,25 @@ TankOutput ReverbTank::process(float input)
     acc *= -kap_;
     acc += pr;
 
+    acc = saturate(acc); // EMverb融合 Task 1: Side A ソフトサチュレーション
     bufWrite(wp_ + baseDel1_, acc);
     out.wetL = acc;
 
     // --- Side B ---
     acc = input;
-    acc += bufRead(wp_ + baseDel1_ + tapDel1_ - 1) * reverbTime_;
+    // EMverb融合 Task 3: Side B に変調追加（EMverb互換 0.7倍オフセット）
+    {
+        float modOfsB = loopModBase_ * 0.7f
+                      + loopModAmp_  * 0.7f * lfoVal_[0];
+        acc += interpRead(baseDel1_, tapDel1_, modOfsB) * reverbTime_;
+    }
 
-    lpDecay2_ += lp_ * (acc - lpDecay2_);
-    acc = lpDecay2_;
+    // EMverb融合 Task 2: SVF ローパス（Side B）
+    {
+        float lpHz   = 200.0f * std::pow(100.0f, lp_);
+        float lpNorm = std::min(lpHz / static_cast<float>(sr_), 0.49f);
+        acc = svfB_.process(acc, lpNorm);
+    }
 
     pr = bufRead(wp_ + baseDap2a_ + tapDap2a_ - 1);
     acc += pr * kap_;
@@ -152,6 +168,7 @@ TankOutput ReverbTank::process(float input)
     acc *= kap_;
     acc += pr;
 
+    acc = saturate(acc); // EMverb融合 Task 1: Side B ソフトサチュレーション
     bufWrite(wp_ + baseDel2_, acc);
     out.wetR = acc;
 

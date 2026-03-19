@@ -109,12 +109,13 @@ MeltVerbEditor::MeltVerbEditor(MeltVerbPlugin& p)
         dlg->addButton("Cancel", 0);
         dlg->enterModalState(true,
             juce::ModalCallbackFunction::create(
-                [this, dlg](int result) {
+                [safeThis = juce::Component::SafePointer(this), dlg](int result) {
+                    if (safeThis == nullptr) return;
                     if (result == 1) {
                         auto n = dlg->getTextEditorContents("name").trim();
                         if (n.isNotEmpty()) {
-                            proc_.presetManager.savePreset(n);
-                            refreshPresetList();
+                            safeThis->proc_.presetManager.savePreset(n);
+                            safeThis->refreshPresetList();
                         }
                     }
                 }));

@@ -17,9 +17,9 @@ public:
     void prepare(double sampleRate)
     {
         sr_ = std::max(sampleRate, 8000.0);
-        maxDelaySamples_ = static_cast<float>(sr_ * 2.0);
+        maxDelaySamples_ = static_cast<float>(sr_ * 4.0);
 
-        int maxSamples = static_cast<int>(sr_ * 2.1);
+        int maxSamples = static_cast<int>(sr_ * 4.1);
         bufSize_ = nextPow2(maxSamples + 4);
         bufMask_ = bufSize_ - 1;
         buf_ = std::make_unique<float[]>(bufSize_);
@@ -53,7 +53,7 @@ public:
 
     void setTimeNorm(float norm)
     {
-        float ms = norm * norm * 2000.0f;
+        float ms = norm * norm * 4000.0f;
         delaySamples_ = ms * 0.001f * static_cast<float>(sr_);
         delaySamples_ = std::clamp(delaySamples_, 1.0f,
             maxDelaySamples_);
@@ -120,7 +120,7 @@ private:
     std::unique_ptr<float[]> buf_;
     int bufSize_ = 0, bufMask_ = 0, wp_ = 0;
     double sr_ = 48000.0;
-    float maxDelaySamples_ = 96000.0f;
+    float maxDelaySamples_ = 192000.0f;
 
     float delaySamples_ = 14400.0f;
     float modDepth_ = 0.5f;

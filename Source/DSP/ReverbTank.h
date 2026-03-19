@@ -54,6 +54,23 @@ private:
     float lpDecay1_ = 0.0f;
     float lpDecay2_ = 0.0f;
 
+    // EMverb融合 Task 2: overdamped SVF ローパス（ループ内ダンピング用）
+    struct SVF {
+        float low = 0.0f, band = 0.0f;
+        float process(float in, float cutoffNorm) noexcept
+        {
+            constexpr float q = 1.5f;
+            float f = 2.0f * std::sinf(
+                static_cast<float>(M_PI) * cutoffNorm);
+            f = std::min(f, 0.85f);
+            band += f * (in - low - q * band);
+            low  += f * band;
+            return low;
+        }
+        void reset() noexcept { low = band = 0.0f; }
+    };
+    SVF svfA_, svfB_;
+
     struct CosOsc {
         float phase = 0.0f, freq = 0.0f;
         float next()
@@ -78,4 +95,11 @@ private:
     float bufRead(int i) const { return buf_[i & bufMask_]; }
     void bufWrite(int i, float v) { buf_[i & bufMask_] = v; }
     float interpRead(int base, int maxLen, float offset) const;
+
+    // EMverb融合 Task 1: フィードバックループ内ソフトサチュレーション
+    inline float saturate(float x) const noexcept
+    {
+        constexpr float kDrive = 0.7f;
+        return std::tanh(x * kDrive) / kDrive;
+    }
 };

@@ -142,9 +142,10 @@ void MeltEngine::process(float* inOutL, float* inOutR,
             reverbTailPrev_ = tankOut.tail;
         }
 
-        // Safety clamp (no tanh distortion in normal range)
-        outL = std::clamp(outL, -1.5f, 1.5f);
-        outR = std::clamp(outR, -1.5f, 1.5f);
+        // EMverb融合 Task 4: ソフトクリップ（tanh でアナログ的な軟飽和）
+        constexpr float kOutThresh = 1.5f;
+        outL = std::tanh(outL / kOutThresh) * kOutThresh;
+        outR = std::tanh(outR / kOutThresh) * kOutThresh;
 
         // [METER] output
         meterOutput.pushSample((outL + outR) * 0.5f);

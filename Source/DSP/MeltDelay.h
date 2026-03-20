@@ -30,6 +30,15 @@ public:
         envAttack_  = 1.0f - std::exp(-1.0f / static_cast<float>(sr_ * 0.01));
         envRelease_ = 1.0f - std::exp(-1.0f / static_cast<float>(sr_ * 0.10));
 
+        // Euclidean深化 Task B2: スムーズゲイン係数（SR依存）
+        euclidGainAttack_  = 1.0f - std::exp(
+            -1.0f / static_cast<float>(sr_ * 0.005));
+        euclidGainRelease_ = 1.0f - std::exp(
+            -1.0f / static_cast<float>(sr_ * 0.020));
+        euclidRotationPhase_  = 0.0f;
+        euclidRotationOffset_ = 0;
+        euclidRotationFreq_   = 0.0f;
+
         triFreq_ = 0.0f;
         sinFreq_ = 0.0f;
         setModSpeed(0.5f);
@@ -53,6 +62,10 @@ public:
         euclidStep_        = 0;
         euclidSampleCount_ = 0;
         euclidGain_        = 0.0f;
+        // Euclidean深化 Task B4: ローテーション+スムーズゲインもリセット
+        euclidRotationPhase_  = 0.0f;
+        euclidRotationOffset_ = 0;
+        euclidGainSmooth_     = 0.0f;
     }
 
     // Step8 Task 8: ms直値で受け取る（Parameters.h の単位変更に対応）
@@ -86,6 +99,18 @@ public:
         // Sine LFO: 0.7 Hz base, scaled by speed
         float s = 0.2f + speed * 1.6f;
         sinFreq_ = 0.7f * inv * s;
+
+        // Euclidean深化 Task B3: ローテーション速度（speed=0で停止, =1で約4秒/周）
+        if (speed > 0.0f)
+        {
+            float periodSec = 4.0f + (1.0f - speed) * 60.0f;
+            euclidRotationFreq_ = 1.0f
+                / (periodSec * static_cast<float>(sr_));
+        }
+        else
+        {
+            euclidRotationFreq_ = 0.0f;
+        }
     }
 
     // Euclidean delay Task B: モード切替時に状態初期化
@@ -103,6 +128,9 @@ public:
                     std::round(modDepth_ * (kEuclidSteps - 1))) + 1);
             buildEuclidPattern(pulses);
             euclidGain_ = euclidPattern_[0] ? 1.0f : 0.0f;
+            euclidGainSmooth_ = euclidGain_;        // Euclidean深化 Task B6
+            euclidRotationPhase_  = 0.0f;           // Euclidean深化 Task B6
+            euclidRotationOffset_ = 0;              // Euclidean深化 Task B6
         }
     }
 
@@ -182,6 +210,14 @@ private:
     int   euclidSampleCount_ = 0;
     int   euclidStepLen_     = 0;
     float euclidGain_        = 0.0f;
+
+    // Euclidean深化 Task B1: ローテーション + スムーズゲイン
+    float euclidRotationPhase_  = 0.0f;
+    float euclidRotationFreq_   = 0.0f;
+    int   euclidRotationOffset_ = 0;
+    float euclidGainSmooth_     = 0.0f;
+    float euclidGainAttack_     = 0.0f;
+    float euclidGainRelease_    = 0.0f;
 
     /// Euclidean delay Task A: Bjorklund (bresenham) でパターン生成
     void buildEuclidPattern(int pulses)
@@ -267,20 +303,41 @@ private:
         return sample;
     }
 
-    // Euclidean delay Task C: Euclidean モードの処理
+    // Euclidean深化 Task B5: ローテーション + スムーズゲイン付き Euclidean 処理
     float processEuclidean()
     {
-        ++euclidSampleCount_;
+        // --- ローテーション位相を進める ---
+        euclidRotationPhase_ += euclidRotationFreq_;
+        if (euclidRotationPhase_ >= 1.0f)
+        {
+            euclidRotationPhase_ -= 1.0f;
+            euclidRotationOffset_ =
+                (euclidRotationOffset_ + 1) % kEuclidSteps;
+        }
 
+        // --- サンプルカウンタを進めてステップ更新 ---
+        ++euclidSampleCount_;
         if (euclidSampleCount_ >= euclidStepLen_)
         {
             euclidSampleCount_ = 0;
             euclidStep_ = (euclidStep_ + 1) % kEuclidSteps;
-            euclidGain_ = euclidPattern_[euclidStep_] ? 1.0f : 0.0f;
+
+            // ローテーションオフセットを考慮したパターン読み出し
+            int rotatedStep =
+                (euclidStep_ + euclidRotationOffset_) % kEuclidSteps;
+            euclidGain_ = euclidPattern_[rotatedStep] ? 1.0f : 0.0f;
         }
 
+        // --- ゲインをスムーズに補間 ---
+        float targetGain = euclidGain_;
+        float coeff = (targetGain > euclidGainSmooth_)
+            ? euclidGainAttack_
+            : euclidGainRelease_;
+        euclidGainSmooth_ += coeff * (targetGain - euclidGainSmooth_);
+
+        // --- 遅延読み出しとゲイン適用 ---
         float delayed = hermiteRead(delaySamples_);
-        return delayed * euclidGain_;
+        return delayed * euclidGainSmooth_;
     }
 
     float processSwell(float delayed)

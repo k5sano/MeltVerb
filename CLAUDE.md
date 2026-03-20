@@ -86,6 +86,10 @@ JUCE フレームワークで開発。外部依存なしで自己完結する。
   宣言順序はメンバ変数でも `unique_ptr` でも、Attachment を Widget より後に置くこと。
 - `AlertWindow` / `FileChooser` などモーダル UI は `enterModalState` ではなく
   `launchAsync` を使うこと（JUCE 7 以降 synchronous modal は非推奨）。
+- `resized()` でコンポーネントの `setBounds()` に残り領域全体を渡さないこと。
+  `btn.setBounds(col)` のように残り全域を割り当てると hitbox が意図しない範囲に広がり、
+  他のコンポーネント（ComboBox 等）のクリックを横取りする。
+  必ず `col.removeFromTop(h)` 等で明示的にサイズを切り出してから渡すこと。
 
 ### オーディオ品質
 - リバーブのフィードバックループ内でハードクリップ（`std::clamp`）を使わないこと。

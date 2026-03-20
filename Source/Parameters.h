@@ -29,7 +29,7 @@ inline juce::AudioProcessorValueTreeState::ParameterLayout createLayout()
 
     params.push_back(std::make_unique<juce::AudioParameterFloat>(
         juce::ParameterID{"delay_mix", 1}, "D.Mix",
-        juce::NormalisableRange<float>(0.0f, 1.0f, 0.001f), 0.5f));
+        juce::NormalisableRange<float>(0.0f, 1.0f, 0.001f), 0.0f));
 
     // Euclidean delay Task D: mode上限を4に拡張（3=Euclidean, 4=Stochastic予約）
     params.push_back(std::make_unique<juce::AudioParameterInt>(

@@ -57,7 +57,7 @@ private:
     ReverbTank    tank_;
 
     float feedback_   = 0.25f;
-    float delayMix_   = 0.5f;
+    float delayMix_   = 0.0f;
     float reverbMix_  = 0.5f;
     float crossFeed_  = 0.1f;
 

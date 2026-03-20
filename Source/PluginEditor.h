@@ -60,6 +60,9 @@ private:
     std::unique_ptr<BtnAtt> bypDiffuserAtt, bypDelayAtt, bypToneAtt;
     std::unique_ptr<BtnAtt> bypReverbAtt, bypCrossFeedAtt;
 
+    // PingPongRandom: ランダムパントグル（APVTS 非管理）
+    juce::ToggleButton panRandomBtn{"Rnd"};
+
     // Preset
     juce::ComboBox presetBox;
     juce::TextButton saveBtn{"Save"}, delBtn{"Del"};

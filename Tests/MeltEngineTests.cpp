@@ -363,10 +363,11 @@ TEST_CASE("Stochastic prob=0 produces silence", "[melt][stochastic]")
     L[0] = 1.0f; R[0] = 1.0f;
     eng.process(L.data(), R.data(), N);
 
-    // ディレイ成分は無音だが、dryとリバーブ初期反射は残る
-    // ディレイ到着位置付近（200ms=9600サンプル）で確認
-    float delayRms = rms(L.data() + 9000, 2000);
-    // prob=1 の場合と比較して十分小さいこと
+    // L+R合算RMS（パン処理でステレオ分配されるため両ch計測）
+    float sparseEnergy = 0.0f;
+    for (int j = 9000; j < 11000; ++j)
+        sparseEnergy += L[j] * L[j] + R[j] * R[j];
+
     MeltEngine eng2;
     eng2.prepare(48000.0);
     eng2.setDelayTime(200.0f);
@@ -381,6 +382,8 @@ TEST_CASE("Stochastic prob=0 produces silence", "[melt][stochastic]")
     L2[0] = 1.0f; R2[0] = 1.0f;
     eng2.process(L2.data(), R2.data(), N);
 
-    float fullRms = rms(L2.data() + 9000, 2000);
-    REQUIRE(delayRms < fullRms);
+    float fullEnergy = 0.0f;
+    for (int j = 9000; j < 11000; ++j)
+        fullEnergy += L2[j] * L2[j] + R2[j] * R2[j];
+    REQUIRE(sparseEnergy < fullEnergy);
 }

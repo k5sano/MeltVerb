@@ -196,9 +196,13 @@ void MeltEngine::process(float* inOutL, float* inOutR,
                     int step = delay_.getEuclidStep();
                     if (step != lastPanStep_)
                     {
-                        panPos_ = std::sin(
-                            static_cast<float>(step) * 2.0f
-                            * static_cast<float>(M_PI) / 8.0f);
+                        // PingPongRandom: ランダム or 固定テーブル
+                        if (randomPan_)
+                            panPos_ = dist_(rng_) * 2.0f - 1.0f;
+                        else
+                            panPos_ = std::sin(
+                                static_cast<float>(step) * 2.0f
+                                * static_cast<float>(M_PI) / 8.0f);
                         lastPanStep_ = step;
                     }
                 }

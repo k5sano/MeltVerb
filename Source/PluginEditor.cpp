@@ -92,6 +92,16 @@ MeltVerbEditor::MeltVerbEditor(MeltVerbPlugin& p)
     bypReverbAtt    = std::make_unique<BtnAtt>(a, "bypass_reverb",    bypReverbBtn);
     bypCrossFeedAtt = std::make_unique<BtnAtt>(a, "bypass_crossfeed", bypCrossFeedBtn);
 
+    // PingPongRandom: ランダムパントグルボタン
+    addAndMakeVisible(panRandomBtn);
+    panRandomBtn.setColour(juce::ToggleButton::textColourId,
+        juce::Colours::white.withAlpha(0.8f));
+    panRandomBtn.setColour(juce::ToggleButton::tickColourId,
+        juce::Colour(0xFFFFDD44));
+    panRandomBtn.onStateChange = [this] {
+        proc_.getEngine().setPanRandom(panRandomBtn.getToggleState());
+    };
+
     // Preset controls
     addAndMakeVisible(presetBox);
     presetBox.setTextWhenNothingSelected("-- Presets --");
@@ -498,10 +508,11 @@ void MeltVerbEditor::resized()
 
     // Bypass buttons (left column)
     auto bypCol = debugLayout.removeFromLeft(110);
-    int btnH = bypCol.getHeight() / 5;
+    int btnH = bypCol.getHeight() / 6;  // PingPongRandom: 6分割に変更
     bypDiffuserBtn.setBounds(bypCol.removeFromTop(btnH));
     bypDelayBtn.setBounds(bypCol.removeFromTop(btnH));
     bypToneBtn.setBounds(bypCol.removeFromTop(btnH));
     bypReverbBtn.setBounds(bypCol.removeFromTop(btnH));
-    bypCrossFeedBtn.setBounds(bypCol);
+    bypCrossFeedBtn.setBounds(bypCol.removeFromTop(btnH));
+    panRandomBtn.setBounds(bypCol);  // PingPongRandom
 }

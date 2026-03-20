@@ -46,6 +46,9 @@ public:
     float getEuclidGain()   const { return delay_.getEuclidGainSmooth(); }
     float getStochGain()    const { return delay_.getStochGainSmooth(); }
 
+    // PingPongRandom
+    void setPanRandom(bool b)         { randomPan_ = b; }
+
     // Bypass switches
     void setBypassDiffuser(bool b)    { bypassDiffuser_ = b; }
     void setBypassDelay(bool b)       { bypassDelay_ = b; }
@@ -97,6 +100,7 @@ private:
     float panSmoothing_  = 0.0f;
     int   lastPanStep_   = -1;
     float prevStochGain_ = 0.0f;
+    bool  randomPan_     = false;  // PingPongRandom
     std::mt19937 rng_{ std::random_device{}() };
     std::uniform_real_distribution<float> dist_{ 0.0f, 1.0f };
 

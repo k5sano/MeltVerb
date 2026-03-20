@@ -132,8 +132,9 @@ void MeltEngine::process(float* inOutL, float* inOutR,
         float outL, outR;
         if (bypassReverb_)
         {
-            outL = dryL;
-            outR = dryR;
+            // リバーブをスルー: tankInput（ディレイ含む）をそのまま出力
+            outL = dryL * (1.0f - reverbMix_) + tankInput * reverbMix_;
+            outR = dryR * (1.0f - reverbMix_) + tankInput * reverbMix_;
             meterReverbOut.pushSample(0.0f);
         }
         else

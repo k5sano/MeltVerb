@@ -116,7 +116,7 @@ MeltVerbEditor::MeltVerbEditor(MeltVerbPlugin& p)
         auto name = proc_.presetManager.getCurrentPresetName();
         auto dlg = std::make_shared<juce::AlertWindow>(
             "Save Preset", "Enter preset name:",
-            juce::MessageBoxIconType::NoIcon, this);
+            juce::MessageBoxIconType::NoIcon, nullptr);
         dlg->addTextEditor("name", name, "Name:");
         dlg->addButton("Save", 1);
         dlg->addButton("Cancel", 0);

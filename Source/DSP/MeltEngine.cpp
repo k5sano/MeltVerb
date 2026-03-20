@@ -131,8 +131,8 @@ void MeltEngine::process(float* inOutL, float* inOutR,
         float outL, outR;
         if (bypassReverb_)
         {
-            outL = dryL; // Step5 Task 5
-            outR = dryR; // Step5 Task 5
+            outL = dryL;
+            outR = dryR;
             meterReverbOut.pushSample(0.0f);
         }
         else
@@ -141,9 +141,9 @@ void MeltEngine::process(float* inOutL, float* inOutR,
             meterReverbOut.pushSample(
                 (tankOut.wetL + tankOut.wetR) * 0.5f);
 
-            outL = dryL * (1.0f - reverbMix_) // Step5 Task 5
+            outL = dryL * (1.0f - reverbMix_)
                   + tankOut.wetL * reverbMix_;
-            outR = dryR * (1.0f - reverbMix_) // Step5 Task 5
+            outR = dryR * (1.0f - reverbMix_)
                   + tankOut.wetR * reverbMix_;
 
             reverbTailPrev_ = tankOut.tail;

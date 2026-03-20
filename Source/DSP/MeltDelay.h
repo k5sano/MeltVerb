@@ -26,6 +26,11 @@ public:
 
         reverseGrain_ = static_cast<int>(sr_ * 0.05);
         delaySamples_ = static_cast<float>(0.2 * sr_);  // Step8 Task 8: デフォルト 200ms
+        // DelaySmoothing: 約50msでターゲットに到達
+        delaySmoothing_     = 1.0f - std::exp(
+            -1.0f / static_cast<float>(sr_ * 0.05));
+        delaySamplesTarget_ = delaySamples_;
+        delaySamplesSmooth_ = delaySamples_;
 
         envAttack_  = 1.0f - std::exp(-1.0f / static_cast<float>(sr_ * 0.01));
         envRelease_ = 1.0f - std::exp(-1.0f / static_cast<float>(sr_ * 0.10));
@@ -66,17 +71,24 @@ public:
         euclidRotationPhase_  = 0.0f;
         euclidRotationOffset_ = 0;
         euclidGainSmooth_     = 0.0f;
+        // DelaySmoothing: リセット
+        delaySamplesTarget_ = delaySamples_;
+        delaySamplesSmooth_ = delaySamples_;
     }
 
-    // Step8 Task 8: ms直値で受け取る（Parameters.h の単位変更に対応）
+    // DelaySmoothing: 目標値のみ更新、実際の適用は read() 内で
     void setTimeMs(float ms)
     {
-        delaySamples_ = ms * 0.001f * static_cast<float>(sr_);
-        delaySamples_ = std::clamp(delaySamples_, 1.0f,
+        float newTarget = ms * 0.001f * static_cast<float>(sr_);
+        delaySamplesTarget_ = std::clamp(newTarget, 1.0f,
             maxDelaySamples_);
-        // Euclidean delay Task B: 1ステップ長をディレイタイムと同期
+        // 大きなジャンプ時はスムーズ値も即座に寄せる（起動直後・プリセット切替時）
+        float diff = delaySamplesTarget_ - delaySamplesSmooth_;
+        if (std::fabs(diff) > maxDelaySamples_ * 0.25f)
+            delaySamplesSmooth_ = delaySamplesTarget_;
+        // Euclidean ステップ長は即時更新 OK
         euclidStepLen_ = std::max(1,
-            static_cast<int>(delaySamples_));
+            static_cast<int>(delaySamplesTarget_));
     }
 
     // Euclidean delay Task B: depth変更時にパターン再生成
@@ -121,8 +133,9 @@ public:
         {
             euclidStep_        = 0;
             euclidSampleCount_ = 0;
+            // DelaySmoothing: ターゲット値を使う
             euclidStepLen_     = std::max(1,
-                static_cast<int>(delaySamples_));
+                static_cast<int>(delaySamplesTarget_));
             int pulses = std::max(1,
                 static_cast<int>(
                     std::round(modDepth_ * (kEuclidSteps - 1))) + 1);
@@ -142,6 +155,11 @@ public:
 
     float read()
     {
+        // DelaySmoothing: 毎サンプル目標値に近づける
+        delaySamplesSmooth_ += delaySmoothing_
+            * (delaySamplesTarget_ - delaySamplesSmooth_);
+        delaySamples_ = delaySamplesSmooth_;
+
         // Advance LFOs
         triPhase_ += triFreq_;
         if (triPhase_ >= 1.0f) triPhase_ -= 1.0f;
@@ -187,6 +205,10 @@ private:
     float maxDelaySamples_ = 192000.0f;
 
     float delaySamples_ = 14400.0f;
+    // DelaySmoothing: スムージング用
+    float delaySamplesTarget_ = 14400.0f;
+    float delaySamplesSmooth_ = 14400.0f;
+    float delaySmoothing_     = 0.0f;
     float modDepth_ = 0.5f;
     int mode_ = 0;
 

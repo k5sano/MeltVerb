@@ -20,6 +20,16 @@ void MeltEngine::prepare(double sampleRate)
 
     delayOutPrev_ = 0.0f;
     reverbTailPrev_ = 0.0f;
+
+    // ParamSmoothing: SR依存の係数を計算
+    smoothCoeffFast_ = 1.0f - std::exp(
+        -1.0f / static_cast<float>(sampleRate * 0.005));
+    smoothCoeffMid_  = 1.0f - std::exp(
+        -1.0f / static_cast<float>(sampleRate * 0.020));
+    feedback_s_  = feedback_t_;
+    delayMix_s_  = delayMix_t_;
+    reverbMix_s_ = reverbMix_t_;
+    crossFeed_s_ = crossFeed_t_;
 }
 
 void MeltEngine::clear()
@@ -30,6 +40,11 @@ void MeltEngine::clear()
     tank_.clear();
     delayOutPrev_ = 0.0f;
     reverbTailPrev_ = 0.0f;
+    // ParamSmoothing: clear時も補間値をリセット
+    feedback_s_  = feedback_t_;
+    delayMix_s_  = delayMix_t_;
+    reverbMix_s_ = reverbMix_t_;
+    crossFeed_s_ = crossFeed_t_;
 }
 
 void MeltEngine::setDiffusion(float k)
@@ -62,6 +77,12 @@ void MeltEngine::process(float* inOutL, float* inOutR,
 {
     for (int i = 0; i < numSamples; ++i)
     {
+        // ParamSmoothing: 毎サンプル目標値に近づける
+        feedback_s_  += smoothCoeffFast_ * (feedback_t_  - feedback_s_);
+        delayMix_s_  += smoothCoeffMid_  * (delayMix_t_  - delayMix_s_);
+        reverbMix_s_ += smoothCoeffMid_  * (reverbMix_t_ - reverbMix_s_);
+        crossFeed_s_ += smoothCoeffFast_ * (crossFeed_t_ - crossFeed_s_);
+
         // Step5 Task 5: DSP処理用モノラル + ドライはステレオ保持（前後感・定位の維持）
         float mono = (inOutL[i] + inOutR[i]) * 0.5f;
         float dryL = inOutL[i];
@@ -88,8 +109,8 @@ void MeltEngine::process(float* inOutL, float* inOutR,
         }
 
         // 2. Cross-feed: reverb tail -> delay feedback
-        float effFb = feedback_;
-        float effCf = crossFeed_;
+        float effFb = feedback_s_;   // ParamSmoothing
+        float effCf = crossFeed_s_;  // ParamSmoothing
         float totalGain = effFb + effCf;
         if (totalGain > 0.95f)
         {
@@ -127,8 +148,9 @@ void MeltEngine::process(float* inOutL, float* inOutR,
         meterDelayOut.pushSample(delayOut);
 
         // 7. Delay mix -> Tank input
-        float tankInput = diffused * (1.0f - delayMix_)
-                         + delayOut * delayMix_;
+        // ParamSmoothing: delayMix_s_ を使用
+        float tankInput = diffused * (1.0f - delayMix_s_)
+                         + delayOut * delayMix_s_;
 
         // [METER] reverb_in
         meterReverbIn.pushSample(tankInput);
@@ -138,8 +160,8 @@ void MeltEngine::process(float* inOutL, float* inOutR,
         if (bypassReverb_)
         {
             // リバーブをスルー: tankInput（ディレイ含む）をそのまま出力
-            outL = dryL * (1.0f - reverbMix_) + tankInput * reverbMix_;
-            outR = dryR * (1.0f - reverbMix_) + tankInput * reverbMix_;
+            outL = dryL * (1.0f - reverbMix_s_) + tankInput * reverbMix_s_;
+            outR = dryR * (1.0f - reverbMix_s_) + tankInput * reverbMix_s_;
             meterReverbOut.pushSample(0.0f);
         }
         else
@@ -148,10 +170,10 @@ void MeltEngine::process(float* inOutL, float* inOutR,
             meterReverbOut.pushSample(
                 (tankOut.wetL + tankOut.wetR) * 0.5f);
 
-            outL = dryL * (1.0f - reverbMix_)
-                  + tankOut.wetL * reverbMix_;
-            outR = dryR * (1.0f - reverbMix_)
-                  + tankOut.wetR * reverbMix_;
+            outL = dryL * (1.0f - reverbMix_s_)
+                  + tankOut.wetL * reverbMix_s_;
+            outR = dryR * (1.0f - reverbMix_s_)
+                  + tankOut.wetR * reverbMix_s_;
 
             reverbTailPrev_ = tankOut.tail;
         }

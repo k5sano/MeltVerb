@@ -20,22 +20,22 @@ public:
 
     // Delay params
     void setDelayTime(float ms)       { delay_.setTimeMs(ms); } // Step8 Task 8: ms直値
-    void setDelayFeedback(float fb)   { feedback_ = fb; }
+    void setDelayFeedback(float fb)   { feedback_t_ = fb; }  // ParamSmoothing
     void setDelayTone(float t)        { tone_.setTone(t); }
-    void setDelayMix(float m)         { delayMix_ = m; }
+    void setDelayMix(float m)         { delayMix_t_ = m; }  // ParamSmoothing
     void setDelayMode(int mode)       { delay_.setMode(mode); }
 
     // Reverb params
     void setReverbDecay(float d)      { tank_.setDecay(d); }
     void setReverbDamping(float lp)   { tank_.setDamping(lp); }
-    void setReverbMix(float m)        { reverbMix_ = m; }
+    void setReverbMix(float m)        { reverbMix_t_ = m; }  // ParamSmoothing
 
     // Shared params
     void setDiffusion(float k);
     void setDiffuseRange(int range)   { diffuseRange_ = range; }
     void setDiffuseSend(float s)      { diffuseSend_ = s; }
     void setDiffuseReturn(float r)    { diffuseReturn_ = r; }
-    void setCrossFeed(float cf)       { crossFeed_ = cf; }
+    void setCrossFeed(float cf)       { crossFeed_t_ = cf; }  // ParamSmoothing
     void setModSpeed(float s);
     void setModDepth(float d)         { delay_.setModDepth(d); }
 
@@ -60,6 +60,14 @@ private:
     float delayMix_   = 0.0f;
     float reverbMix_  = 0.5f;
     float crossFeed_  = 0.1f;
+
+    // ParamSmoothing: 目標値(_t)と現在補間値(_s)
+    float feedback_t_  = 0.25f, feedback_s_  = 0.25f;
+    float delayMix_t_  = 0.0f,  delayMix_s_  = 0.0f;
+    float reverbMix_t_ = 0.5f,  reverbMix_s_ = 0.5f;
+    float crossFeed_t_ = 0.1f,  crossFeed_s_ = 0.1f;
+    float smoothCoeffFast_ = 0.0f;  // ~5ms
+    float smoothCoeffMid_  = 0.0f;  // ~20ms
 
     float delayOutPrev_    = 0.0f;
     float reverbTailPrev_  = 0.0f;

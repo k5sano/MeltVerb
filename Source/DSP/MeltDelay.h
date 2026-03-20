@@ -226,6 +226,12 @@ public:
     /// Store current input for swell envelope tracking
     void setCurrentInput(float input) { currentInput_ = input; }
 
+    // PhilosopherPan: accessor
+    int   getMode()              const { return mode_; }
+    int   getEuclidStep()        const { return euclidStep_; }
+    float getEuclidGainSmooth()  const { return euclidGainSmooth_; }
+    float getStochGainSmooth()   const { return stochGainSmooth_; }
+
 private:
     std::unique_ptr<float[]> buf_;
     int bufSize_ = 0, bufMask_ = 0, wp_ = 0;

@@ -30,6 +30,14 @@ void MeltEngine::prepare(double sampleRate)
     delayMix_s_  = delayMix_t_;
     reverbMix_s_ = reverbMix_t_;
     crossFeed_s_ = crossFeed_t_;
+
+    // PhilosopherPan: パンスムージング係数（約30ms）
+    panSmoothing_ = 1.0f - std::exp(
+        -1.0f / static_cast<float>(sampleRate * 0.03));
+    panPos_       = 0.0f;
+    panPosSmooth_ = 0.0f;
+    lastPanStep_  = -1;
+    prevStochGain_ = 0.0f;
 }
 
 void MeltEngine::clear()
@@ -176,6 +184,42 @@ void MeltEngine::process(float* inOutL, float* inOutR,
                   + tankOut.wetR * reverbMix_s_;
 
             reverbTailPrev_ = tankOut.tail;
+        }
+
+        // PhilosopherPan: Euclidean/Stochastic モード時にステレオパン適用
+        {
+            int currentMode = delay_.getMode();
+            if (currentMode == 3 || currentMode == 4)
+            {
+                if (currentMode == 3)
+                {
+                    int step = delay_.getEuclidStep();
+                    if (step != lastPanStep_)
+                    {
+                        panPos_ = std::sin(
+                            static_cast<float>(step) * 2.0f
+                            * static_cast<float>(M_PI) / 8.0f);
+                        lastPanStep_ = step;
+                    }
+                }
+                else
+                {
+                    float g = delay_.getStochGainSmooth();
+                    if (g > 0.05f && prevStochGain_ <= 0.05f)
+                        panPos_ = dist_(rng_) * 2.0f - 1.0f;
+                    prevStochGain_ = g;
+                }
+
+                panPosSmooth_ += panSmoothing_ * (panPos_ - panPosSmooth_);
+
+                float panNorm = (panPosSmooth_ + 1.0f) * 0.5f;
+                float panAngle = panNorm * static_cast<float>(M_PI) * 0.5f;
+                float gainL = std::cos(panAngle) * 1.414f;
+                float gainR = std::sin(panAngle) * 1.414f;
+
+                outL *= gainL;
+                outR *= gainR;
+            }
         }
 
         // EMverb融合 Task 4: ソフトクリップ（tanh でアナログ的な軟飽和）

@@ -5,6 +5,7 @@
 #include "ToneFilter.h"
 #include "ReverbTank.h"
 #include "DebugMeter.h"
+#include <random>
 
 /// Unified DSP engine: InputDiffuser → MeltDelay (3 modes) → ReverbTank
 /// with cross-feed from reverb tail back into delay feedback.
@@ -38,6 +39,12 @@ public:
     void setCrossFeed(float cf)       { crossFeed_t_ = cf; }  // ParamSmoothing
     void setModSpeed(float s);
     void setModDepth(float d)         { delay_.setModDepth(d); }
+
+    // PhilosopherPan: ディレイの内部状態を参照
+    int getDelayMode()      const { return delay_.getMode(); }
+    int getEuclidStep()     const { return delay_.getEuclidStep(); }
+    float getEuclidGain()   const { return delay_.getEuclidGainSmooth(); }
+    float getStochGain()    const { return delay_.getStochGainSmooth(); }
 
     // Bypass switches
     void setBypassDiffuser(bool b)    { bypassDiffuser_ = b; }
@@ -83,6 +90,15 @@ private:
         constexpr float kDrive = 0.5f;
         return std::tanh(x * kDrive) / kDrive;
     }
+
+    // PhilosopherPan: 哲学者モード用ステレオパン状態
+    float panPos_        = 0.0f;
+    float panPosSmooth_  = 0.0f;
+    float panSmoothing_  = 0.0f;
+    int   lastPanStep_   = -1;
+    float prevStochGain_ = 0.0f;
+    std::mt19937 rng_{ std::random_device{}() };
+    std::uniform_real_distribution<float> dist_{ 0.0f, 1.0f };
 
     bool bypassDiffuser_   = false;
     bool bypassDelay_      = false;

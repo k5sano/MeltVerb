@@ -508,11 +508,12 @@ void MeltVerbEditor::resized()
 
     // Bypass buttons (left column)
     auto bypCol = debugLayout.removeFromLeft(110);
-    int btnH = bypCol.getHeight() / 6;  // PingPongRandom: 6分割に変更
-    bypDiffuserBtn.setBounds(bypCol.removeFromTop(btnH));
-    bypDelayBtn.setBounds(bypCol.removeFromTop(btnH));
-    bypToneBtn.setBounds(bypCol.removeFromTop(btnH));
-    bypReverbBtn.setBounds(bypCol.removeFromTop(btnH));
+    // PingPongRandom Fix: 6ボタンを均等分割、残り全域への setBounds を廃止
+    int btnH = bypCol.getHeight() / 6;
+    bypDiffuserBtn.setBounds (bypCol.removeFromTop(btnH));
+    bypDelayBtn.setBounds    (bypCol.removeFromTop(btnH));
+    bypToneBtn.setBounds     (bypCol.removeFromTop(btnH));
+    bypReverbBtn.setBounds   (bypCol.removeFromTop(btnH));
     bypCrossFeedBtn.setBounds(bypCol.removeFromTop(btnH));
-    panRandomBtn.setBounds(bypCol);  // PingPongRandom
+    panRandomBtn.setBounds   (bypCol.removeFromTop(btnH));
 }

@@ -49,6 +49,10 @@ public:
         reverseReadPos_ = 0;
         reverseBlockLen_ = 0;
         reverseCount_ = 0;
+        // Euclidean delay Task B: clear時にリセット
+        euclidStep_        = 0;
+        euclidSampleCount_ = 0;
+        euclidGain_        = 0.0f;
     }
 
     // Step8 Task 8: ms直値で受け取る（Parameters.h の単位変更に対応）
@@ -57,9 +61,22 @@ public:
         delaySamples_ = ms * 0.001f * static_cast<float>(sr_);
         delaySamples_ = std::clamp(delaySamples_, 1.0f,
             maxDelaySamples_);
+        // Euclidean delay Task B: 1ステップ長をディレイタイムと同期
+        euclidStepLen_ = std::max(1,
+            static_cast<int>(delaySamples_));
     }
 
-    void setModDepth(float depth) { modDepth_ = depth; }
+    // Euclidean delay Task B: depth変更時にパターン再生成
+    void setModDepth(float depth)
+    {
+        modDepth_ = depth;
+        if (mode_ == 3)
+        {
+            int pulses = std::max(1,
+                static_cast<int>(std::round(depth * (kEuclidSteps - 1))) + 1);
+            buildEuclidPattern(pulses);
+        }
+    }
 
     void setModSpeed(float speed)
     {
@@ -71,7 +88,23 @@ public:
         sinFreq_ = 0.7f * inv * s;
     }
 
-    void setMode(int mode) { mode_ = mode; }
+    // Euclidean delay Task B: モード切替時に状態初期化
+    void setMode(int mode)
+    {
+        mode_ = mode;
+        if (mode_ == 3)
+        {
+            euclidStep_        = 0;
+            euclidSampleCount_ = 0;
+            euclidStepLen_     = std::max(1,
+                static_cast<int>(delaySamples_));
+            int pulses = std::max(1,
+                static_cast<int>(
+                    std::round(modDepth_ * (kEuclidSteps - 1))) + 1);
+            buildEuclidPattern(pulses);
+            euclidGain_ = euclidPattern_[0] ? 1.0f : 0.0f;
+        }
+    }
 
     void write(float sample)
     {
@@ -89,6 +122,9 @@ public:
 
         if (mode_ == 1)
             return processReverse();
+        // Euclidean delay Task C: mode 3 分岐
+        if (mode_ == 3)
+            return processEuclidean();
 
         float triVal = 4.0f * std::abs(triPhase_ - 0.5f) - 1.0f;
         float sinVal = std::sin(2.0f * static_cast<float>(M_PI)
@@ -139,6 +175,48 @@ private:
     int reverseCount_ = 0;
     int reverseGrain_ = 2400;
 
+    // Euclidean delay Task A: Euclidean rhythm state
+    static constexpr int kEuclidSteps = 8;
+    bool  euclidPattern_[kEuclidSteps] = {};
+    int   euclidStep_        = 0;
+    int   euclidSampleCount_ = 0;
+    int   euclidStepLen_     = 0;
+    float euclidGain_        = 0.0f;
+
+    /// Euclidean delay Task A: Bjorklund (bresenham) でパターン生成
+    void buildEuclidPattern(int pulses)
+    {
+        int n = kEuclidSteps;
+        int k = std::clamp(pulses, 1, n);
+
+        for (int i = 0; i < n; ++i)
+            euclidPattern_[i] = false;
+
+        int err = 0;
+        for (int i = 0; i < n; ++i)
+        {
+            err += k;
+            if (err >= n)
+            {
+                euclidPattern_[i] = true;
+                err -= n;
+            }
+        }
+
+        // パルス数の保険（bresenham端数補正）
+        int count = 0;
+        for (int i = 0; i < n; ++i)
+            if (euclidPattern_[i]) ++count;
+        for (int i = 0; i < n && count < k; ++i)
+        {
+            if (!euclidPattern_[i])
+            {
+                euclidPattern_[i] = true;
+                ++count;
+            }
+        }
+    }
+
     static int nextPow2(int n)
     {
         int v = 1;
@@ -187,6 +265,22 @@ private:
 
         --reverseCount_;
         return sample;
+    }
+
+    // Euclidean delay Task C: Euclidean モードの処理
+    float processEuclidean()
+    {
+        ++euclidSampleCount_;
+
+        if (euclidSampleCount_ >= euclidStepLen_)
+        {
+            euclidSampleCount_ = 0;
+            euclidStep_ = (euclidStep_ + 1) % kEuclidSteps;
+            euclidGain_ = euclidPattern_[euclidStep_] ? 1.0f : 0.0f;
+        }
+
+        float delayed = hermiteRead(delaySamples_);
+        return delayed * euclidGain_;
     }
 
     float processSwell(float delayed)

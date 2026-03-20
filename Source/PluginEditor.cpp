@@ -20,9 +20,11 @@ MeltVerbEditor::MeltVerbEditor(MeltVerbPlugin& p)
 
     // Mode ComboBox
     addAndMakeVisible(modeBox);
-    modeBox.addItem("Normal",  1);
-    modeBox.addItem("Reverse", 2);
-    modeBox.addItem("Swell",   3);
+    modeBox.addItem("Normal",     1);
+    modeBox.addItem("Reverse",    2);
+    modeBox.addItem("Swell",      3);
+    modeBox.addItem("Euclidean",  4);  // Euclidean delay Task D
+    modeBox.addItem("Stochastic", 5);  // Euclidean delay Task D: 次回実装用
     modeAtt = std::make_unique<CBAtt>(p.apvts, "delay_mode", modeBox);
 
     addAndMakeVisible(modeLabel);

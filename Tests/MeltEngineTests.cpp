@@ -252,3 +252,68 @@ TEST_CASE("Swell mode attenuates during loud input", "[melt]")
     float avgEnergy = tailEnergy / 256.0f;
     REQUIRE(avgEnergy < 2.0f);
 }
+
+// Euclidean delay Task E: Euclidean モードテスト
+TEST_CASE("Euclidean mode produces rhythmic output", "[melt][euclidean]")
+{
+    MeltEngine eng;
+    eng.prepare(48000.0);
+    eng.setDelayTime(100.0f);     // 100ms ステップ
+    eng.setDelayFeedback(0.5f);
+    eng.setDelayMix(0.8f);
+    eng.setReverbMix(0.5f);      // ディレイ出力をタンク経由で聴くため
+    eng.setReverbDecay(0.3f);
+    eng.setDelayMode(3);          // Euclidean
+    eng.setModDepth(0.4f);        // 約4/8 パルス密度
+
+    constexpr int N = 48000;
+    std::vector<float> L(N, 0.0f), R(N, 0.0f);
+    L[0] = 1.0f; R[0] = 1.0f;
+    eng.process(L.data(), R.data(), N);
+
+    float maxVal = 0.0f;
+    for (int i = 0; i < N; ++i)
+    {
+        REQUIRE(std::isfinite(L[i]));
+        maxVal = std::max(maxVal, std::fabs(L[i]));
+    }
+    REQUIRE(maxVal > 0.001f);
+    REQUIRE(maxVal <= 1.51f);
+}
+
+TEST_CASE("Euclidean mode: depth=0 produces sparse echo", "[melt][euclidean]")
+{
+    MeltEngine eng;
+    eng.prepare(48000.0);
+    eng.setDelayTime(100.0f);     // 100ms
+    eng.setDelayFeedback(0.5f);
+    eng.setDelayMix(1.0f);
+    eng.setReverbMix(0.5f);      // ディレイ出力をタンク経由で聴くため
+    eng.setReverbDecay(0.3f);
+    eng.setDelayMode(3);
+    eng.setModDepth(0.0f);        // 最疎: 1/8
+
+    constexpr int N = 48000;
+    std::vector<float> L(N, 0.0f), R(N, 0.0f);
+    L[0] = 1.0f; R[0] = 1.0f;
+    eng.process(L.data(), R.data(), N);
+
+    float sparseRms = rms(L.data() + 1000, N - 1000);
+
+    MeltEngine eng2;
+    eng2.prepare(48000.0);
+    eng2.setDelayTime(100.0f);
+    eng2.setDelayFeedback(0.5f);
+    eng2.setDelayMix(1.0f);
+    eng2.setReverbMix(0.5f);
+    eng2.setReverbDecay(0.3f);
+    eng2.setDelayMode(3);
+    eng2.setModDepth(1.0f);       // 最密: 8/8
+
+    std::vector<float> L2(N, 0.0f), R2(N, 0.0f);
+    L2[0] = 1.0f; R2[0] = 1.0f;
+    eng2.process(L2.data(), R2.data(), N);
+
+    float denseRms = rms(L2.data() + 1000, N - 1000);
+    REQUIRE(sparseRms < denseRms);
+}

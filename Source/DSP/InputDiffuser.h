@@ -54,7 +54,11 @@ public:
         lfoVal_ = 0.0f;
     }
 
-    void setDiffusion(float k) { kap_ = k; }
+    // Fix A: 4段カスケードallpass + smear干渉を考慮した安全上限
+    void setDiffusion(float k)
+    {
+        kap_ = std::clamp(k, 0.0f, 0.82f);
+    }
 
     void setModSpeed(float speed)
     {
@@ -76,7 +80,8 @@ public:
         }
 
         float smOfs = smearBase_ + smearAmp_ * lfoVal_;
-        float smVal = interpRead(0, tap_[0], smOfs);
+        // Fix B: smear値をsaturateしてから書き込む（突発的な大振幅注入を防ぐ）
+        float smVal = saturate(interpRead(0, tap_[0], smOfs));
         bufWrite(wp_ + base_[0] + smearWOfs_, smVal);
 
         float acc = input;
@@ -125,6 +130,13 @@ private:
 
     float bufRead(int i) const { return buf_[i & bufMask_]; }
     void bufWrite(int i, float v) { buf_[i & bufMask_] = v; }
+
+    // Fix B: Diffuser smear 用ソフトサチュレーション
+    static inline float saturate(float x) noexcept
+    {
+        constexpr float kDrive = 0.7f;
+        return std::tanh(x * kDrive) / kDrive;
+    }
 
     float interpRead(int base, int maxLen, float offset) const
     {

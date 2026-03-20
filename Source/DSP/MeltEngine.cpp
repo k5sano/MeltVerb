@@ -38,7 +38,8 @@ void MeltEngine::setDiffusion(float k)
     {
         case 0: mapped = k * 0.14f;                break; // Low:  0–0.14
         case 1: mapped = 0.14f + k * 0.71f;        break; // Mid:  0.14–0.85
-        case 2: mapped = 0.85f + k * 0.15f;        break; // High: 0.85–1.0
+        // Fix D: High レンジ上限を kap_ 安全上限 0.82 に合わせる
+        case 2: mapped = 0.72f + k * 0.10f;        break; // High: 0.72–0.82
     }
 
     diffuser_.setDiffusion(mapped);

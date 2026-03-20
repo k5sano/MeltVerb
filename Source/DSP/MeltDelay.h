@@ -4,6 +4,7 @@
 #include <cstring>
 #include <algorithm>
 #include <memory>
+#include <random>
 
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
@@ -44,6 +45,13 @@ public:
         euclidRotationOffset_ = 0;
         euclidRotationFreq_   = 0.0f;
 
+        // Stochastic Phase1: スムーズゲイン係数
+        stochGainAttack_  = 1.0f - std::exp(
+            -1.0f / static_cast<float>(sr_ * 0.005));
+        stochGainRelease_ = 1.0f - std::exp(
+            -1.0f / static_cast<float>(sr_ * 0.020));
+        stochStepLen_ = std::max(1, static_cast<int>(delaySamples_));
+
         triFreq_ = 0.0f;
         sinFreq_ = 0.0f;
         setModSpeed(0.5f);
@@ -71,6 +79,10 @@ public:
         euclidRotationPhase_  = 0.0f;
         euclidRotationOffset_ = 0;
         euclidGainSmooth_     = 0.0f;
+        // Stochastic Phase1: リセット
+        stochGain_        = 0.0f;
+        stochGainSmooth_  = 0.0f;
+        stochSampleCount_ = 0;
         // DelaySmoothing: リセット
         delaySamplesTarget_ = delaySamples_;
         delaySamplesSmooth_ = delaySamples_;
@@ -89,6 +101,8 @@ public:
         // Euclidean ステップ長は即時更新 OK
         euclidStepLen_ = std::max(1,
             static_cast<int>(delaySamplesTarget_));
+        stochStepLen_ = std::max(1,
+            static_cast<int>(delaySamplesTarget_)); // Stochastic Phase1
     }
 
     // Euclidean delay Task B: depth変更時にパターン再生成
@@ -101,6 +115,8 @@ public:
                 static_cast<int>(std::round(depth * (kEuclidSteps - 1))) + 1);
             buildEuclidPattern(pulses);
         }
+        if (mode_ == 4)
+            stochProb_ = depth;  // Stochastic Phase1: depth = 発音確率
     }
 
     void setModSpeed(float speed)
@@ -145,6 +161,15 @@ public:
             euclidRotationPhase_  = 0.0f;           // Euclidean深化 Task B6
             euclidRotationOffset_ = 0;              // Euclidean深化 Task B6
         }
+        if (mode_ == 4) // Stochastic Phase1
+        {
+            stochGain_        = 0.0f;
+            stochGainSmooth_  = 0.0f;
+            stochSampleCount_ = 0;
+            stochStepLen_     = std::max(1,
+                static_cast<int>(delaySamplesTarget_));
+            stochProb_        = modDepth_;
+        }
     }
 
     void write(float sample)
@@ -171,6 +196,9 @@ public:
         // Euclidean delay Task C: mode 3 分岐
         if (mode_ == 3)
             return processEuclidean();
+        // Stochastic Phase1: mode 4 分岐
+        if (mode_ == 4)
+            return processStochastic();
 
         float triVal = 4.0f * std::abs(triPhase_ - 0.5f) - 1.0f;
         float sinVal = std::sin(2.0f * static_cast<float>(M_PI)
@@ -240,6 +268,17 @@ private:
     float euclidGainSmooth_     = 0.0f;
     float euclidGainAttack_     = 0.0f;
     float euclidGainRelease_    = 0.0f;
+
+    // Stochastic Phase1: 確率的エコー用状態
+    float stochProb_          = 0.5f;
+    float stochGain_          = 0.0f;
+    float stochGainSmooth_    = 0.0f;
+    float stochGainAttack_    = 0.0f;
+    float stochGainRelease_   = 0.0f;
+    int   stochSampleCount_   = 0;
+    int   stochStepLen_       = 0;
+    std::mt19937 rng_{ std::random_device{}() };
+    std::uniform_real_distribution<float> dist_{ 0.0f, 1.0f };
 
     /// Euclidean delay Task A: Bjorklund (bresenham) でパターン生成
     void buildEuclidPattern(int pulses)
@@ -360,6 +399,24 @@ private:
         // --- 遅延読み出しとゲイン適用 ---
         float delayed = hermiteRead(delaySamples_);
         return delayed * euclidGainSmooth_;
+    }
+
+    // Stochastic Phase1: 確率的エコー処理
+    float processStochastic()
+    {
+        ++stochSampleCount_;
+        if (stochSampleCount_ >= stochStepLen_)
+        {
+            stochSampleCount_ = 0;
+            stochGain_ = (dist_(rng_) < stochProb_) ? 1.0f : 0.0f;
+        }
+
+        float coeff = (stochGain_ > stochGainSmooth_)
+            ? stochGainAttack_ : stochGainRelease_;
+        stochGainSmooth_ += coeff * (stochGain_ - stochGainSmooth_);
+
+        float delayed = hermiteRead(delaySamples_);
+        return delayed * stochGainSmooth_;
     }
 
     float processSwell(float delayed)

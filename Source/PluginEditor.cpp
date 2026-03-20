@@ -24,7 +24,8 @@ MeltVerbEditor::MeltVerbEditor(MeltVerbPlugin& p)
     modeBox.addItem("Reverse",    2);
     modeBox.addItem("Swell",      3);
     modeBox.addItem("Euclidean",  4);  // Euclidean delay Task D
-    modeBox.addItem("Stochastic", 5);  // Euclidean delay Task D: 次回実装用
+    modeBox.addItem("Stochastic", 5);  // Stochastic Phase1
+    modeBox.addItem("Zen",        6);  // Stochastic Phase1: Zen Mode 予約
     modeAtt = std::make_unique<CBAtt>(p.apvts, "delay_mode", modeBox);
 
     addAndMakeVisible(modeLabel);

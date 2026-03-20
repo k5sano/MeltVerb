@@ -111,9 +111,10 @@ void MeltEngine::process(float* inOutL, float* inOutR,
         }
         else
         {
-            delay_.write(mono + fbSignal);
+            // Fix 1: read()を先に呼ぶことで正しい遅延量を得る
             delay_.setCurrentInput(mono);
             float rawDelay = delay_.read();
+            delay_.write(mono + fbSignal);
             delayOut = bypassTone_ ? rawDelay : tone_.process(rawDelay);
         }
 

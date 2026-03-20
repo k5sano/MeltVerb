@@ -61,6 +61,7 @@ private:
     std::atomic<float>* bypassReverbParam    = nullptr;
     std::atomic<float>* bypassCrossFeedParam = nullptr;
 
+    int lastDelayMode_ = -1;  // Fix 2: 前回のモード値キャッシュ
     MeltEngine engine_;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(MeltVerbPlugin)

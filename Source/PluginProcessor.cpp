@@ -61,7 +61,15 @@ void MeltVerbPlugin::processBlock(juce::AudioBuffer<float>& buffer,
     engine_.setDelayFeedback(delayFeedbackParam->load());
     engine_.setDelayTone(delayToneParam->load());
     engine_.setDelayMix(delayMixParam->load());
-    engine_.setDelayMode(static_cast<int>(delayModeParam->load()));
+    // Fix 2: モードが変わったときだけ setMode() を呼ぶ
+    {
+        int currentMode = static_cast<int>(delayModeParam->load());
+        if (currentMode != lastDelayMode_)
+        {
+            engine_.setDelayMode(currentMode);
+            lastDelayMode_ = currentMode;
+        }
+    }
     engine_.setReverbDecay(reverbDecayParam->load());
     engine_.setReverbDamping(reverbDampParam->load());
     engine_.setReverbMix(reverbMixParam->load());

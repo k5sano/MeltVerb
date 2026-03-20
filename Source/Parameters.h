@@ -9,9 +9,15 @@ inline juce::AudioProcessorValueTreeState::ParameterLayout createLayout()
     std::vector<std::unique_ptr<juce::RangedAudioParameter>> params;
 
     // --- Delay ---
-    params.push_back(std::make_unique<juce::AudioParameterFloat>(
-        juce::ParameterID{"delay_time", 1}, "Time",
-        juce::NormalisableRange<float>(0.0f, 1.0f, 0.001f), 0.3f));
+    // Step8 Task 8: 10ms〜1000ms、対数スケールで短い時間の解像度を確保
+    {
+        juce::NormalisableRange<float> timeRange(10.0f, 1000.0f, 0.1f);
+        timeRange.setSkewForCentre(200.0f);
+        params.push_back(std::make_unique<juce::AudioParameterFloat>(
+            juce::ParameterID{"delay_time", 1}, "Time",
+            timeRange, 200.0f,
+            juce::AudioParameterFloatAttributes().withLabel("ms")));
+    }
 
     params.push_back(std::make_unique<juce::AudioParameterFloat>(
         juce::ParameterID{"delay_feedback", 1}, "Repeats",

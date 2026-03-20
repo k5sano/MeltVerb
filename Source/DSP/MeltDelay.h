@@ -25,7 +25,7 @@ public:
         buf_ = std::make_unique<float[]>(bufSize_);
 
         reverseGrain_ = static_cast<int>(sr_ * 0.05);
-        delaySamples_ = static_cast<float>(0.3 * sr_);
+        delaySamples_ = static_cast<float>(0.2 * sr_);  // Step8 Task 8: デフォルト 200ms
 
         envAttack_  = 1.0f - std::exp(-1.0f / static_cast<float>(sr_ * 0.01));
         envRelease_ = 1.0f - std::exp(-1.0f / static_cast<float>(sr_ * 0.10));
@@ -51,9 +51,9 @@ public:
         reverseCount_ = 0;
     }
 
-    void setTimeNorm(float norm)
+    // Step8 Task 8: ms直値で受け取る（Parameters.h の単位変更に対応）
+    void setTimeMs(float ms)
     {
-        float ms = norm * norm * 4000.0f;
         delaySamples_ = ms * 0.001f * static_cast<float>(sr_);
         delaySamples_ = std::clamp(delaySamples_, 1.0f,
             maxDelaySamples_);

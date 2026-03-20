@@ -19,7 +19,7 @@ public:
     void process(float* inOutL, float* inOutR, int numSamples);
 
     // Delay params
-    void setDelayTime(float norm)     { delay_.setTimeNorm(norm); }
+    void setDelayTime(float ms)       { delay_.setTimeMs(ms); } // Step8 Task 8: ms直値
     void setDelayFeedback(float fb)   { feedback_ = fb; }
     void setDelayTone(float t)        { tone_.setTone(t); }
     void setDelayMix(float m)         { delayMix_ = m; }
@@ -68,6 +68,13 @@ private:
     float diffuseSend_     = 0.5f;
     float diffuseReturn_   = 0.5f;
     float diffusionRaw_    = 0.4f;  // raw knob value before range mapping
+
+    // Step7 Task 7: ディレイフィードバック用ソフトサチュレーション
+    static inline float saturateFb(float x) noexcept
+    {
+        constexpr float kDrive = 0.5f;
+        return std::tanh(x * kDrive) / kDrive;
+    }
 
     bool bypassDiffuser_   = false;
     bool bypassDelay_      = false;

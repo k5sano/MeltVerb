@@ -57,7 +57,7 @@ TEST_CASE("Impulse produces delay echo", "[melt]")
 {
     MeltEngine eng;
     eng.prepare(48000.0);
-    eng.setDelayTime(0.5f);       // 0.25 * 2000 = 500ms
+    eng.setDelayTime(500.0f);     // 500ms（Step8 Task 8: ms直値に変更）
     eng.setDelayFeedback(0.0f);
     eng.setDelayMix(1.0f);
     eng.setReverbMix(1.0f);       // must be >0 to hear delay through tank
@@ -81,7 +81,7 @@ TEST_CASE("Cross-feed increases density", "[melt]")
     auto runWithCF = [](float cf) -> float {
         MeltEngine eng;
         eng.prepare(48000.0);
-        eng.setDelayTime(0.3f);
+        eng.setDelayTime(180.0f);   // Step8 Task 8: ms直値
         eng.setDelayFeedback(0.4f);
         eng.setDelayMix(0.5f);
         eng.setReverbDecay(0.6f);
@@ -130,7 +130,7 @@ TEST_CASE("Works at 44100Hz", "[melt]")
     MeltEngine eng;
     eng.prepare(44100.0);
     eng.setReverbDecay(0.5f);
-    eng.setDelayTime(0.3f);
+    eng.setDelayTime(180.0f);   // Step8 Task 8: ms直値
     eng.setDelayMix(0.5f);
     eng.setReverbMix(0.8f);
 
@@ -147,7 +147,7 @@ TEST_CASE("Works at 96000Hz", "[melt]")
     MeltEngine eng;
     eng.prepare(96000.0);
     eng.setReverbDecay(0.5f);
-    eng.setDelayTime(0.3f);
+    eng.setDelayTime(180.0f);   // Step8 Task 8: ms直値
     eng.setDelayMix(0.5f);
     eng.setReverbMix(0.8f);
 
@@ -211,7 +211,7 @@ TEST_CASE("Reverse mode produces output", "[melt]")
 {
     MeltEngine eng;
     eng.prepare(48000.0);
-    eng.setDelayTime(0.3f);
+    eng.setDelayTime(180.0f);   // Step8 Task 8: ms直値
     eng.setDelayFeedback(0.3f);
     eng.setDelayMix(0.8f);
     eng.setReverbMix(0.3f);
@@ -234,7 +234,7 @@ TEST_CASE("Swell mode attenuates during loud input", "[melt]")
 {
     MeltEngine eng;
     eng.prepare(48000.0);
-    eng.setDelayTime(0.05f);
+    eng.setDelayTime(10.0f);    // Step8 Task 8: 10ms（旧 0.05^2*2000=5ms 相当を10msに）
     eng.setDelayFeedback(0.0f);
     eng.setDelayMix(1.0f);
     eng.setReverbMix(0.0f);

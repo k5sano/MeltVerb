@@ -57,8 +57,10 @@ void MeltEngine::process(float* inOutL, float* inOutR,
 {
     for (int i = 0; i < numSamples; ++i)
     {
+        // Step5 Task 5: DSP処理用モノラル + ドライはステレオ保持（前後感・定位の維持）
         float mono = (inOutL[i] + inOutR[i]) * 0.5f;
-        float dry = mono;
+        float dryL = inOutL[i];
+        float dryR = inOutR[i];
 
         // [METER] input
         meterInput.pushSample(mono);
@@ -73,7 +75,9 @@ void MeltEngine::process(float* inOutL, float* inOutR,
         {
             float diffIn = mono * diffuseSend_;
             float diffOut = diffuser_.process(diffIn);
-            diffOut = std::clamp(diffOut, -1.5f, 1.5f);
+            // Step6 Task 6a: Diffuser出力をソフトクリップ
+            constexpr float kDiffThresh = 1.5f;
+            diffOut = std::tanh(diffOut / kDiffThresh) * kDiffThresh;
             diffused = mono * (1.0f - diffuseReturn_)
                       + diffOut * diffuseReturn_;
         }
@@ -91,7 +95,10 @@ void MeltEngine::process(float* inOutL, float* inOutR,
         float cfSignal = bypassCrossFeed_
             ? 0.0f : reverbTailPrev_ * effCf;
         float fbSignal = delayOutPrev_ * effFb + cfSignal;
-        fbSignal = std::clamp(fbSignal, -2.0f, 2.0f);
+        // Step6 Task 6b: fbSignal をソフトクリップ
+        constexpr float kFbThresh = 2.0f;
+        fbSignal = std::tanh(fbSignal / kFbThresh) * kFbThresh;
+        fbSignal = saturateFb(fbSignal);  // Step7 Task 7: fbパスをまろやかに
 
         // [METER] crossfeed
         meterCrossFeed.pushSample(cfSignal);
@@ -124,8 +131,8 @@ void MeltEngine::process(float* inOutL, float* inOutR,
         float outL, outR;
         if (bypassReverb_)
         {
-            outL = dry;
-            outR = dry;
+            outL = dryL; // Step5 Task 5
+            outR = dryR; // Step5 Task 5
             meterReverbOut.pushSample(0.0f);
         }
         else
@@ -134,9 +141,9 @@ void MeltEngine::process(float* inOutL, float* inOutR,
             meterReverbOut.pushSample(
                 (tankOut.wetL + tankOut.wetR) * 0.5f);
 
-            outL = dry * (1.0f - reverbMix_)
+            outL = dryL * (1.0f - reverbMix_) // Step5 Task 5
                   + tankOut.wetL * reverbMix_;
-            outR = dry * (1.0f - reverbMix_)
+            outR = dryR * (1.0f - reverbMix_) // Step5 Task 5
                   + tankOut.wetR * reverbMix_;
 
             reverbTailPrev_ = tankOut.tail;

@@ -14,6 +14,10 @@ void MeltEngine::prepare(double sampleRate)
     tone_.prepare(sampleRate);
     tank_.prepare(sampleRate);
 
+    // Issue1 Fix: バッファを無音で埋めてゼロ読み出しアーティファクト防止
+    for (int i = 0; i < 512; ++i)
+        delay_.write(0.0f);
+
     delayOutPrev_ = 0.0f;
     reverbTailPrev_ = 0.0f;
 }

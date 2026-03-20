@@ -57,13 +57,15 @@ public:
     // Fix A: 4段カスケードallpass + smear干渉を考慮した安全上限
     void setDiffusion(float k)
     {
-        kap_ = std::clamp(k, 0.0f, 0.82f);
+        kap_ = std::clamp(k, 0.0f, 0.78f); // Issue2 Fix-A (0.82→0.78)
     }
 
+    // Issue2 Fix-C: 急激な変化を避けるためスムーズフィルタ
     void setModSpeed(float speed)
     {
         float s = 0.2f + speed * 1.6f;
-        lfoFreq_ = 0.5f / static_cast<float>(sr_) * s;
+        float newFreq = 0.5f / static_cast<float>(sr_) * s;
+        lfoFreq_ = lfoFreq_ + 0.01f * (newFreq - lfoFreq_);
     }
 
     float process(float input)
@@ -80,9 +82,10 @@ public:
         }
 
         float smOfs = smearBase_ + smearAmp_ * lfoVal_;
-        // Fix B: smear値をsaturateしてから書き込む（突発的な大振幅注入を防ぐ）
+        // Issue2 Fix-B: smear値をsaturateし、allpass tapと衝突しない位置に書き込む
         float smVal = saturate(interpRead(0, tap_[0], smOfs));
-        bufWrite(wp_ + base_[0] + smearWOfs_, smVal);
+        int smearWritePos = wp_ + base_[3] + tap_[3] + kSmearSeparation;
+        bufWrite(smearWritePos, smVal);
 
         float acc = input;
 
@@ -95,11 +98,15 @@ public:
             acc += rd;
         }
 
+        // Issue2 Fix-D: allpass出力にソフトリミット（最終防衛線）
+        constexpr float kApThresh = 1.2f;
+        acc = std::tanh(acc / kApThresh) * kApThresh;
         return acc;
     }
 
 private:
     static constexpr int kRef[4] = {113, 162, 241, 399};
+    static constexpr int kSmearSeparation = 47; // Issue2 Fix-B: 素数オフセットで衝突回避
 
     int tap_[4] = {};
     int base_[4] = {};
